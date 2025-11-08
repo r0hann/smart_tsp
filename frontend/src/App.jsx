@@ -109,13 +109,30 @@ export default function App() {
       approach: ['N', 'S', 'E', 'W'][Math.floor(Math.random() * 4)],
       lane_queue: Math.round(2 + Math.random() * 8)
     }
+
     try {
       const r = await ingestPing(ping, token)
-      setLog(l => [...l, JSON.stringify(r)])
+
+      // ✅ Build a human-readable description
+      const description = `🚗 Vehicle ${ping.vehicle_id} (${ping.vehicle_type.toUpperCase()})
+    → Approach: ${ping.approach}
+    → Speed: ${ping.speed.toFixed(1)} m/s
+    → Distance: ${ping.distance_m.toFixed(1)} m
+    → Queue: ${ping.lane_queue}
+    ✅ Controller Response: ${r.ok ? 'Accepted' : 'Error'}
+    ${r.message ? '📡 ' + r.message : ''}`
+
+      // ✅ Add both raw and readable versions to the log
+      setLog(l => [
+        ...l,
+        description,
+        '📦 Raw response: ' + JSON.stringify(r)
+      ])
     } catch (err) {
-      setLog(l => [...l, 'ingest error: ' + (err.message || err)])
+      setLog(l => [...l, '❌ Error sending ping: ' + err.message])
     }
   }
+
 
   // helper for visuals
   const approachOrder = ['N', 'S', 'E', 'W']
@@ -235,16 +252,46 @@ export default function App() {
               <div>
                 {approachOrder.map(a => {
                   const info = state.state?.[a] ?? { queue: 0, has_emergency: false }
+
                   return (
-                    <div key={a} className={`p-3 mb-2 rounded ${state.current_green === a ? 'bg-green-50 ring-1 ring-green-100' : 'bg-slate-50'}`}>
+                    <div
+                      key={a}
+                      className={`p-3 mb-2 rounded ${state.current_green === a
+                          ? 'bg-green-50 ring-1 ring-green-100'
+                          : 'bg-slate-50'
+                        }`}
+                    >
+                      {/* Header row */}
                       <div className="flex justify-between items-center mb-2">
-                        <div className="font-medium">{a}</div>
-                        <div className="text-xs text-slate-500">{info.has_emergency ? 'Emergency' : `queue ${info.queue.toFixed(2)}`}</div>
+                        <div className="font-medium flex items-center">
+                          {a}
+                          {/* 🚨 Add the EMG badge here */}
+                          {info.has_emergency && (
+                            <span className="ml-2 px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded animate-pulse">
+                              EMG
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="text-xs text-slate-500">
+                          {info.has_emergency
+                            ? `Emergency${info.exit ? ` → ${info.exit}` : ''}`
+                            : `queue ${info.queue.toFixed(2)}`}
+                        </div>
                       </div>
-                      <QueueBar label={a} value={info.queue} max={queueMax} isGreen={state.current_green === a} emergency={info.has_emergency} />
+
+                      {/* Queue bar */}
+                      <QueueBar
+                        label={a}
+                        value={info.queue}
+                        max={queueMax}
+                        isGreen={state.current_green === a}
+                        emergency={info.has_emergency}
+                      />
                     </div>
                   )
                 })}
+
               </div>
             </div>
           ) : (
@@ -257,8 +304,25 @@ export default function App() {
       <div className="p-4 rounded-lg bg-white shadow mb-6">
         <h3 className="font-medium mb-3">Log</h3>
         <div className="max-h-36 overflow-auto text-xs text-slate-700">
-          {log.length === 0 ? <div className="text-slate-400">No events yet</div> : log.map((l, i) => <div key={i} className="p-1 border-b">{l}</div>)}
+          {log.length === 0 ? (
+            <div className="text-slate-400">No events yet</div>
+          ) : (
+            log.map((l, i) => (
+              <div
+                key={i}
+                className={`p-1 border-b ${l.includes('❌')
+                    ? 'bg-red-50 text-red-700'
+                    : l.includes('✅')
+                      ? 'bg-green-50 text-green-700'
+                      : 'bg-white'
+                  }`}
+              >
+                {l}
+              </div>
+            ))
+          )}
         </div>
+
       </div>
 
       {/* toast */}
